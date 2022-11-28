@@ -63,7 +63,7 @@ extension RouteFindingSectionViewController: UICollectionViewDataSource {
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        switch mMode{
+        switch mMode {
         case .view:
             routeFindingCollectionView.deselectItem(at: indexPath, animated: true)
             //화면이동 로직 들어갈 부분
@@ -121,90 +121,126 @@ extension RouteFindingSectionViewController: UISheetPresentationControllerDelega
 extension RouteFindingSectionViewController: RouteModalDelegate {
     
     func delete() {
-        var deleteNeededIndexPaths : [IndexPath] = []
-        for (key,value) in dictionarySelectedIndexPath{
+        var deleteNeededIndexPaths: [IndexPath] = []
+        for (key,value) in dictionarySelectedIndexPath {
             if value{
                 deleteNeededIndexPaths.append(key)
             }
         }
-        for i in deleteNeededIndexPaths.sorted(by:{$0.item > $1.item}) {
-            routeFindingDataManager!.deleteRouteData(routeInformation: RouteInformations[i.item])
-            RouteInformations.remove(at: i.item)
-        }
-        
-        for (key,value) in dictionarySelectedIndexPath {
-            if value {
-                routeFindingCollectionView.deselectItem(at: key, animated: true)
-            }
-        }
+        initEditRouteInformationsData(editType: .delete)
+        deselectAllItemsInRouteFindingCollectionView()
         routeFindingCollectionView.deleteItems(at: deleteNeededIndexPaths)
         afterEdit(type: .delete)
     }
     
     func folderingToChallenge() {
-        var toChallengeNeededIndexPaths: [IndexPath] = []
-        for (key,value) in dictionarySelectedIndexPath{
-            if value{
-                toChallengeNeededIndexPaths.append(key)
-            }
-        }
-        switch sectionKind {
-        case .all:
-            for i in toChallengeNeededIndexPaths.sorted(by:{$0.item > $1.item}) {
-                routeFindingDataManager?.updateRouteStatus(to: false, of: RouteInformations[i.item])
-            }
-        case .challenge:
-            break
-        case .success:
-            for i in toChallengeNeededIndexPaths.sorted(by:{$0.item > $1.item}) {
-                routeFindingDataManager?.updateRouteStatus(to: false, of: RouteInformations[i.item])
-                RouteInformations.remove(at: i.item)
-            }
-            routeFindingCollectionView.deleteItems(at: toChallengeNeededIndexPaths)
-        case .none:
-            break
-        }
-        
-        for (key,value) in dictionarySelectedIndexPath {
-            if value {
-                routeFindingCollectionView.deselectItem(at: key, animated: true)
-            }
-        }
+        initEditRouteInformationsData(editType: .toChallenge)
+        deselectAllItemsInRouteFindingCollectionView()
         afterEdit(type: .toChallenge)
     }
     
     func folderingToSuccess() {
-        var toSuccessNeededIndexPaths: [IndexPath] = []
+        initEditRouteInformationsData(editType: .toSuccess)
+        deselectAllItemsInRouteFindingCollectionView()
+        afterEdit(type: .toSuccess)
+    }
+    
+    private func initEditRouteInformationsData(editType : RouteFindingEditType) {
+        var temporarySavedIndexPaths: [IndexPath] = []
         for (key,value) in dictionarySelectedIndexPath {
-            if value{
-                toSuccessNeededIndexPaths.append(key)
+            if value {
+                temporarySavedIndexPaths.append(key)
             }
         }
-        switch sectionKind {
-        case .all:
-            for i in toSuccessNeededIndexPaths.sorted(by:{$0.item > $1.item}) {
-                routeFindingDataManager?.updateRouteStatus(to: true, of: RouteInformations[i.item])
+        if editType == .delete {
+            editRouteInformationsData(editType: .delete, at: temporarySavedIndexPaths)
+        } else {
+            switch sectionKind {
+            case .all:
+                for i in temporarySavedIndexPaths.sorted(by:{$0.item > $1.item}) {
+                    routeFindingDataManager?.updateRouteStatus(to: editType == .toSuccess ? true : false, of: RouteInformations[i.item])
+                }
+            case .challenge:
+                if editType == .toSuccess {
+                    editRouteInformationsData(editType: editType, at: temporarySavedIndexPaths)
+                }
+            case .success:
+                if editType == .toChallenge {
+                    editRouteInformationsData(editType: editType, at: temporarySavedIndexPaths)
+                }
+            case .none:
+                break
             }
-        case .challenge:
-            for i in toSuccessNeededIndexPaths.sorted(by:{$0.item > $1.item}) {
-                routeFindingDataManager?.updateRouteStatus(to: true, of: RouteInformations[i.item])
-                RouteInformations.remove(at: i.item)
-            }
-            routeFindingCollectionView.deleteItems(at: toSuccessNeededIndexPaths)
-        case .success:
-            break
-        case .none:
-            break
         }
+    }
+    
+    private func editRouteInformationsData(editType: RouteFindingEditType, at temporarySavedIndexPaths: [IndexPath]) {
+        switch editType {
+        case .delete:
+            deleteRouteInformationsData(at: temporarySavedIndexPaths)
+        case .toChallenge:
+            changeSuccessToChallenge(at: temporarySavedIndexPaths)
+        case .toSuccess:
+            changeChallengeToSuccess(at: temporarySavedIndexPaths)
+        }
+    }
+    
+    private func deleteRouteInformationsData(at temporarySavedIndexPaths: [IndexPath]) {
+        for i in temporarySavedIndexPaths.sorted(by:{$0.item > $1.item}) {
+            routeFindingDataManager!.deleteRouteData(routeInformation: RouteInformations[i.item])
+            RouteInformations.remove(at: i.item)
+        }
+    }
+    
+    private func changeSuccessToChallenge(at temporarySavedIndexPaths: [IndexPath]) {
+        for i in temporarySavedIndexPaths.sorted(by:{$0.item > $1.item}) {
+            routeFindingDataManager?.updateRouteStatus(to: false, of: RouteInformations[i.item])
+            RouteInformations.remove(at: i.item)
+        }
+        routeFindingCollectionView.deleteItems(at: temporarySavedIndexPaths)
+    }
+    
+    private func changeChallengeToSuccess(at temporarySavedIndexPaths: [IndexPath]) {
+        for i in temporarySavedIndexPaths.sorted(by:{$0.item > $1.item}) {
+            routeFindingDataManager?.updateRouteStatus(to: true, of: RouteInformations[i.item])
+            RouteInformations.remove(at: i.item)
+        }
+        routeFindingCollectionView.deleteItems(at: temporarySavedIndexPaths)
+    }
+    
+    private func deselectAllItemsInRouteFindingCollectionView() {
         for (key,value) in dictionarySelectedIndexPath {
             if value {
                 routeFindingCollectionView.deselectItem(at: key, animated: true)
             }
         }
-        afterEdit(type: .toSuccess)
     }
     
-    func showToast(_ message : String, withDuration: Double, delay: Double) {
+    private func afterEdit(type : RouteFindingEditType) {
+        switch type {
+        case .delete:
+            showToast("\(dictionarySelectedIndexPath.count)개의 루트 파인딩을 삭제했습니다.", withDuration: 3.0, delay: 0.1)
+        case .toChallenge:
+            showToast("\(dictionarySelectedIndexPath.count)개의 루트 파인딩이 '도전 중'으로 이동했습니다.", withDuration: 3.0, delay: 0.1)
+        case .toSuccess:
+            showToast("\(dictionarySelectedIndexPath.count)개의 루트 파인딩이 '도전 성공'으로 이동했습니다.", withDuration: 3.0, delay: 0.1)
+        }
+        backToDefaultRouteFindingCollectionViewSetting()
+    }
+    
+    private func backToDefaultRouteFindingCollectionViewSetting() {
+        dictionarySelectedIndexPath.removeAll()
+        mMode = .view
+        routeFindingCollectionView.allowsMultipleSelection = false
+        folderButton.isEnabled = false
+        deleteButton.isEnabled = false
+        routeFindingCollectionView.reloadSections(IndexSet(integer: 0))
+        if RouteInformations.count == 0 {
+            self.emptyGuideView.alpha = 1.0
+        }
+    }
+    
+    func showToast(_ message: String, withDuration: Double, delay: Double) {
         let toastLabel = UILabel()
         toastLabel.backgroundColor = UIColor.orrWhite!.withAlphaComponent(1.0)
         toastLabel.layer.borderColor = UIColor.orrGray200?.cgColor
@@ -229,29 +265,4 @@ extension RouteFindingSectionViewController: RouteModalDelegate {
             toastLabel.removeFromSuperview()
         })
     }
-    
-   private func afterEdit(type : RouteFindingEditType) {
-        switch type{
-        case .delete:
-            showToast("\(dictionarySelectedIndexPath.count)개의 루트 파인딩을 삭제했습니다.", withDuration: 3.0, delay: 0.1)
-        case .toChallenge:
-            showToast("\(dictionarySelectedIndexPath.count)개의 루트 파인딩이 '도전 중'으로 이동했습니다.", withDuration: 3.0, delay: 0.1)
-        case .toSuccess:
-            showToast("\(dictionarySelectedIndexPath.count)개의 루트 파인딩이 '도전 성공'으로 이동했습니다.", withDuration: 3.0, delay: 0.1)
-        }
-        backToDefaultRouteFindingCollectionViewSetting()
-    }
-    
-    private func backToDefaultRouteFindingCollectionViewSetting() {
-        dictionarySelectedIndexPath.removeAll()
-        mMode = .view
-        routeFindingCollectionView.allowsMultipleSelection = false
-        folderButton.isEnabled = false
-        deleteButton.isEnabled = false
-        routeFindingCollectionView.reloadSections(IndexSet(integer: 0))
-        if RouteInformations.count == 0 {
-            self.emptyGuideView.alpha = 1.0
-        }
-    }
-    
 }
